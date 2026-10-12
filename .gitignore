@@ -1,0 +1,16 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+appsettings.*.local.json
+secrets.json
+.env
+*.pfx
+
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
