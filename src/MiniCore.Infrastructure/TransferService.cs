@@ -15,6 +15,12 @@ public interface ITransferService
 {
     Task<ApiResponse> CreateAsync(Caller caller, string? idempotencyKey, TransferRequest request,
         string correlationId, CancellationToken ct = default);
+
+    Task<ApiResponse> ReverseAsync(Caller caller, Guid transferId, string? idempotencyKey,
+        string correlationId, CancellationToken ct = default);
+
+    Task<TransferDetail> GetAsync(Caller caller, Guid transferId, CancellationToken ct = default);
+
 }
 
 public sealed partial class TransferService : ITransferService
@@ -45,7 +51,18 @@ public sealed partial class TransferService : ITransferService
         public decimal Balance { get; set; }
         public string Currency { get; set; } = ""; 
     }
-
+    private sealed class TransferRow
+    {
+        public Guid Id { get; set; }
+        public string SourceAccountId { get; set; } = "";
+        public string DestinationAccountId { get; set; } = "";
+        public decimal Amount { get; set; }
+        public decimal Fee { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime? ReversedAtUtc { get; set; }
+        public string? Description { get; set; }
+    }
         private sealed class IdempotencyRow
     {
         public string RequestHash { get; set; } = "";
