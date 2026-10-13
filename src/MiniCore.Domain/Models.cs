@@ -1,4 +1,4 @@
-namespace MiniCore.Domain.Models;
+namespace MiniCore.Domain;
 
 public sealed record Caller(string ClientId, bool IsOperator, bool IsAuditor)
 {

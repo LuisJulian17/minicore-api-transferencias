@@ -33,6 +33,7 @@ public sealed class UtcDateTimeHandler : SqlMapper.TypeHandler<DateTime>
     }
 }
 
+// Configuración global de Dapper: hace que trate siempre las fechas como UTC (SQL Server las devuelve sin zona)
 public static class DapperSetup
 {
     private static int _done;
@@ -42,4 +43,14 @@ public static class DapperSetup
         if (Interlocked.Exchange(ref _done, 1) == 1) return;
         SqlMapper.AddTypeHandler(new UtcDateTimeHandler());
     }
+}
+
+public interface ITransferFaultInjector
+{
+    void AfterDebit();
+}
+
+public sealed class NoFaultInjector : ITransferFaultInjector
+{
+    public void AfterDebit() { }
 }
