@@ -1,0 +1,234 @@
+### MiniCore - coleccion de requests para los escenarios de aceptacion E1-E12
+### Funciona con la extension "REST Client" de VS Code (Visual Studio 2022 usa {{login.response.body.$.token}}).
+### Antes de repetir un escenario, reinicia los datos ejecutando db/02_seed_and_reset.sql.
+### La API debe estar corriendo en Development:  dotnet run --project src/MiniCore.Api   (http://localhost:5080)
+
+@host = http://localhost:5080
+
+### ---------- Tokens simulados (solo existen en Development) ----------
+
+# @name cust01
+GET {{host}}/dev/token/CUST-01
+
+###
+# @name cust02
+GET {{host}}/dev/token/CUST-02
+
+###
+# @name cust03
+GET {{host}}/dev/token/CUST-03
+
+###
+# @name cust04
+GET {{host}}/dev/token/CUST-04
+
+###
+# @name cust06
+GET {{host}}/dev/token/CUST-06
+
+###
+# @name operator
+GET {{host}}/dev/token/OPERATOR
+
+###
+# @name auditor
+GET {{host}}/dev/token/AUDITOR
+
+### ---------- E1: ACC-1001 -> ACC-1002, 100,00 => 201, comision 0, saldos 9.900,00 y 350,00 ----------
+# @name e1
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 11111111-1111-1111-1111-111111111111
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 100.00, "currency": "USD", "description": "E1" }
+
+### ---------- E2: 1.000,00 => 201, comision 5,00, debito total 1.005,00, saldo origen 8.995,00 ----------
+# @name e2
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 22222222-2222-2222-2222-222222222222
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 1000.00, "currency": "USD", "description": "Pago factura 123" }
+
+### ---------- E3: 501,00 => comision 3,00 (minimo) ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 33333333-3333-3333-3333-333333333331
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 501.00, "currency": "USD" }
+
+### E3: 1.234,57 => comision 6,17 (redondeo de 6,17285)
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 33333333-3333-3333-3333-333333333332
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 1234.57, "currency": "USD" }
+
+### ---------- E4: ACC-1006 (501,00) -> ACC-1002, 501,00 => 422 INSUFFICIENT_FUNDS ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust06.response.body.token}}
+Idempotency-Key: 44444444-4444-4444-4444-444444444444
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1006", "destinationAccountId": "ACC-1002", "amount": 501.00, "currency": "USD" }
+
+### ---------- E5: ACC-1004 envia 3.000, luego 2.000 (201 ambas) y luego 1,00 (422 DAILY_LIMIT_EXCEEDED) ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust04.response.body.token}}
+Idempotency-Key: 55555555-5555-5555-5555-555555555551
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1004", "destinationAccountId": "ACC-1001", "amount": 3000.00, "currency": "USD" }
+
+###
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust04.response.body.token}}
+Idempotency-Key: 55555555-5555-5555-5555-555555555552
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1004", "destinationAccountId": "ACC-1001", "amount": 2000.00, "currency": "USD" }
+
+###
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust04.response.body.token}}
+Idempotency-Key: 55555555-5555-5555-5555-555555555553
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1004", "destinationAccountId": "ACC-1001", "amount": 1.00, "currency": "USD" }
+
+### ---------- E6: origen bloqueada (ACC-1003) => 422 ACCOUNT_NOT_ACTIVE ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust03.response.body.token}}
+Idempotency-Key: 66666666-6666-6666-6666-666666666661
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1003", "destinationAccountId": "ACC-1002", "amount": 100.00, "currency": "USD" }
+
+### E6: destino cerrada (ACC-1005) => 422 ACCOUNT_NOT_ACTIVE
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 66666666-6666-6666-6666-666666666662
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1005", "amount": 100.00, "currency": "USD" }
+
+### ---------- E7: monto 0 => 422 INVALID_AMOUNT ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 77777777-7777-7777-7777-777777777771
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 0, "currency": "USD" }
+
+### E7: monto 10,001 => 422 INVALID_AMOUNT
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 77777777-7777-7777-7777-777777777772
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 10.001, "currency": "USD" }
+
+### E7: origen = destino => 422 SAME_ACCOUNT
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 77777777-7777-7777-7777-777777777773
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1001", "amount": 10.00, "currency": "USD" }
+
+### E7: cuenta inexistente => 404 ACCOUNT_NOT_FOUND
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 77777777-7777-7777-7777-777777777774
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-9999", "amount": 10.00, "currency": "USD" }
+
+### ---------- E8: reverso de la transferencia de E2 (como Operator) => 200 ----------
+### Primero ejecuta E2 y copia el transferId de la respuesta a la variable de abajo.
+@transferId = PEGA-AQUI-EL-TRANSFER-ID
+
+POST {{host}}/api/transfers/{{transferId}}/reverse
+Authorization: Bearer {{operator.response.body.token}}
+Idempotency-Key: 88888888-8888-8888-8888-888888888881
+
+### E8: segundo reverso (otra clave) => 409 TRANSFER_ALREADY_REVERSED
+POST {{host}}/api/transfers/{{transferId}}/reverse
+Authorization: Bearer {{operator.response.body.token}}
+Idempotency-Key: 88888888-8888-8888-8888-888888888882
+
+### ---------- E9: la MISMA clave dos veces => segundo 201 con cabecera Idempotent-Replayed: true ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 99999999-9999-9999-9999-999999999991
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 100.00, "currency": "USD" }
+
+### E9: misma clave, distinto monto => 422 IDEMPOTENCY_KEY_REUSED
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: 99999999-9999-9999-9999-999999999991
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 200.00, "currency": "USD" }
+
+### E9: sin clave => 400 MISSING_IDEMPOTENCY_KEY
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 100.00, "currency": "USD" }
+
+### ---------- E10 (concurrencia): se prueba automaticamente en ReversalIdempotencyConcurrencyTests.E10_... ----------
+### (10 requests simultaneos no se pueden lanzar con un .http; la prueba de integracion los dispara en paralelo)
+
+### ---------- E11: CUST-01 intenta transferir desde ACC-1002 => 403 ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1002", "destinationAccountId": "ACC-1001", "amount": 10.00, "currency": "USD" }
+
+### E11: CUST-01 consulta movimientos de ACC-1002 => 403
+GET {{host}}/api/accounts/ACC-1002/movements
+Authorization: Bearer {{cust01.response.body.token}}
+
+### E11: el Auditor intenta transferir => 403
+POST {{host}}/api/transfers
+Authorization: Bearer {{auditor.response.body.token}}
+Idempotency-Key: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 10.00, "currency": "USD" }
+
+### ---------- E12: falla simulada despues del debito (solo Development) => 500 y NADA cambia ----------
+POST {{host}}/api/transfers
+Authorization: Bearer {{cust01.response.body.token}}
+Idempotency-Key: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1
+X-Simulate-Failure: after-debit
+Content-Type: application/json
+
+{ "sourceAccountId": "ACC-1001", "destinationAccountId": "ACC-1002", "amount": 1000.00, "currency": "USD" }
+
+### Verificacion despues de E12: el saldo de ACC-1001 sigue en 10.000,00
+GET {{host}}/api/accounts/ACC-1001/balance
+Authorization: Bearer {{cust01.response.body.token}}
+
+### ---------- Consultas ----------
+### F2 - movimientos paginados (size maximo 100) con filtros de fecha: rango [from, to)
+GET {{host}}/api/accounts/ACC-1001/movements?from=2026-01-01&to=2027-01-01&page=1&size=20
+Authorization: Bearer {{cust01.response.body.token}}
+
+### F5 - saldo
+GET {{host}}/api/accounts/ACC-1001/balance
+Authorization: Bearer {{cust01.response.body.token}}
+
+### F3 - detalle de una transferencia
+GET {{host}}/api/transfers/{{transferId}}
+Authorization: Bearer {{cust01.response.body.token}}
